@@ -1,5 +1,8 @@
-import { createServer } from 'node:http'
 import { WebSocketServer, WebSocket } from 'ws'
+import { createServer } from 'node:http'
+import { Request } from 'express'
+
+import { verifyAccessToken } from './utils/token.util'
 import app from './app'
 
 const HEARTBEAT_INTERVAL = 1000 * 15
@@ -15,17 +18,43 @@ function heartbeat(ws: WebSocket) {
 const server = createServer(app)
 const web_socket_server = new WebSocketServer({ noServer: true })
 
-server.on('upgrade', (req, socket, head) => {
+server.on('upgrade', async (req, socket, head) => {
   socket.on('error', err => {
     console.error('Error before upgrading:', err)
   })
 
-  web_socket_server.handleUpgrade(req, socket, head, (ws, req) => {
-    web_socket_server.emit('connection', ws, req)
-  })
+  // perform auth
+  let access_token;
+  const cookie_string = (req as Request).headers.cookie
+  if (!cookie_string) {
+    const url = new URL(req.url as string, `ws://${req.headers.host}`)
+    access_token = url.searchParams.get('access_token')
+  } else {
+    const cookies = cookie_string.split(';')
+    access_token = cookies.find((cookie: string) => cookie.trim().startsWith('accessToken='))?.split('=')[1]
+  }
+
+  if (!access_token) { 
+    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+    socket.destroy()
+    return;
+  }
+
+  try {
+    await verifyAccessToken(access_token)
+  
+    web_socket_server.handleUpgrade(req, socket, head, (ws, req) => {
+      web_socket_server.emit('connection', ws, req)
+    })
+  // eslint-disable-next-line no-unused-vars
+  } catch (_error) {
+    socket.write('HTTP/1.1 400 Invalid access token\r\n\r\n');
+    socket.destroy()
+    return;
+  }
 })
 
-web_socket_server.on('connection', (ws: WebSocket, req) => {
+web_socket_server.on('connection', (ws: WebSocket) => {
   ws.on('error', err => {
     console.error('Error after connection', err)
   })

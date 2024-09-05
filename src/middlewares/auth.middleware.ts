@@ -1,7 +1,9 @@
-import { emailValidator, passwordValidator } from '../validations/auth.validation'
-import { AppConfig } from './../config/env.config'
-import jwt from 'jsonwebtoken'
 import { Request, Response, NextFunction } from 'express'
+import jwt from 'jsonwebtoken'
+
+import { emailValidator, passwordValidator } from '../validations/auth.validation'
+import { verifyAccessToken } from '../utils/token.util'
+import { catchAsync } from '../utils/catchAsync.util'
 
 const validateRegistrationBody = (req: Request, res: Response, next: NextFunction) => {
   const { name, email, password } = req.body
@@ -108,7 +110,7 @@ const validateResetPasswordBody = (req: Request, res: Response, next: NextFuncti
   next()
 }
 
-const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
+const authMiddleware = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
   const cookie_string = req.headers.cookie
 
   if (!cookie_string) {
@@ -123,23 +125,23 @@ const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
     .find((cookie: string) => cookie.trim().startsWith('accessToken='))
     ?.split('=')[1]
   if (accessToken) {
-    return jwt.verify(accessToken, AppConfig.AUTH.ACCESS_TOKEN_SECRET, (err, decoded) => {
-      if (err) {
-        return res.status(403).json({
-          success: false,
-          message: 'Invalid Auth'
-        })
-      }
+    const payload = await verifyAccessToken(accessToken)
+    if (!payload) { 
+      return res.status(403).json({
+        success: false,
+        message: 'Invalid Auth',
+      })
+    }
 
-      req.auth = decoded as jwt.JwtPayload
-      next()
-    })
+    req.auth = payload as jwt.JwtPayload
+    next()
+    return;
   }
 
   return res.status(403).json({
     success: false,
     message: 'Authorization Required'
   })
-}
+})
 
 export { validateRegistrationBody, validateLoginBody, authMiddleware, validateResetPasswordBody }
