@@ -1,6 +1,6 @@
 import { Server } from 'http'
 import { AppConfig } from './config/env.config.js'
-import { server, web_socket_server } from './server.js'
+import { server, web_socket_server } from './socket/server.js'
 import { ConnectDB } from './utils/db.util'
 import redisClient from './services/redis.service'
 

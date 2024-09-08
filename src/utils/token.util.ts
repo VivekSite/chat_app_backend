@@ -78,7 +78,7 @@ export const signRefreshToken = (userId: string, payload = {}) => {
   })
 }
 
-export const verifyAccessToken = (accessToken: string) => {
+export const verifyAccessToken = (accessToken: string): Promise<jwt.JwtPayload> => {
   return new Promise((resolve, reject) => {
     jwt.verify(accessToken, AppConfig.AUTH.ACCESS_TOKEN_SECRET, (err, payload: any) => {
       if (err) {
