@@ -2,20 +2,13 @@ import { WebSocketServer, WebSocket, RawData } from 'ws'
 import { createServer, IncomingMessage } from 'node:http'
 import { Request } from 'express'
 
+import { MessageHandler, CloseHandler } from './event.handler'
 import { verifyAccessToken } from '../utils/token.util'
+import { heartbeat } from '../utils/socket.util'
 import { clients } from './../socket/clients'
 import app from '../app'
-import { MessageHandler, CloseHandler } from './controller'
 
 const HEARTBEAT_INTERVAL = 1000 * 15
-const HEARTBEAT_VALUE = 1
-
-function heartbeat(ws: WebSocket) {
-  if (!ws.isAlive) return ws.terminate()
-
-  ws.isAlive = false
-  ws.ping(HEARTBEAT_VALUE)
-}
 
 const server = createServer(app)
 const web_socket_server = new WebSocketServer({ noServer: true })
@@ -73,7 +66,7 @@ web_socket_server.on('connection', (ws: WebSocket, req: IncomingMessage) => {
     name: req.auth.name,
     ws
   }
-  clients.set(req.auth.email, clientData)
+  clients.set(req.auth.id, clientData)
 
   ws.on('pong', () => {
     console.log('pong')
@@ -99,7 +92,7 @@ web_socket_server.on('connection', (ws: WebSocket, req: IncomingMessage) => {
 const interval = setInterval(() => {
   console.log('firing interval')
   web_socket_server.clients.forEach(client => {
-    heartbeat(client as WebSocket)
+    heartbeat(client as WebSocket, 1)
   })
 }, HEARTBEAT_INTERVAL)
 

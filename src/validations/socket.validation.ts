@@ -1,16 +1,18 @@
+import { Types } from 'mongoose'
 import z from 'zod'
 
-const ReceiversSchema = z.object({
-  email: z
+const ObjectIdString = (err_Message: string) => {
+  return z
     .string({
-      required_error: 'Receivers email is required!'
+      required_error: err_Message
     })
-    .regex(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Invalid email!')
-})
+    .regex(/^[0-9a-fA-F]{24}$/)
+    .transform(value => new Types.ObjectId(value))
+}
 
 export const SocketMessageSchema = z.object({
-  message: z.string({
+  conversationId: ObjectIdString('conversationId is required!'),
+  body: z.string({
     required_error: 'message can not be empty!'
   }),
-  receivers: z.array(ReceiversSchema)
 })

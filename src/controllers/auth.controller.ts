@@ -1,4 +1,4 @@
-import { userModel } from '../models/user.model.js'
+import { userModel } from '../models'
 import bcrypt from 'bcryptjs'
 
 import { catchAsync } from '../utils/catchAsync.util'
