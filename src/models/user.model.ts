@@ -1,9 +1,9 @@
-import mongoose, { Schema } from 'mongoose'
+import mongoose, { Schema, Types } from 'mongoose'
 import { emailValidator } from '../validations/auth.validation.js'
 
 const userSchema = new Schema(
   {
-    name: { type: String, required: true, minLength: 3 },
+    username: { type: String, required: true, minLength: 3 },
     email: {
       type: String,
       required: true,
@@ -18,6 +18,12 @@ const userSchema = new Schema(
       type: String,
       required: true
     },
+    conversations: [
+      {
+        type: Types.ObjectId,
+        ref: 'conversations'
+      }
+    ],
     profileImage: { type: String, default: '' },
     isEmailVerified: { type: Boolean, default: false },
     isMobileVerified: { type: Boolean, default: false },

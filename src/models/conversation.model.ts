@@ -1,13 +1,17 @@
 import { Schema, Types, model } from "mongoose";
 
 const conversationSchema = new Schema({
-  name: {
-    type: String,
-    required: false
-  },
   isGroup: {
     type: Boolean,
     default: false
+  },
+  groupName: {
+    type: String,
+    default: ''
+  },
+  profileImage: {
+    type: String,
+    default: ''
   },
   userIds: [
     {
@@ -25,9 +29,23 @@ const conversationSchema = new Schema({
       ref: 'users'
     }
   ],
-  lastMessageAt: {
+  messages: [
+    {
+      type: Types.ObjectId,
+      ref: 'messages'
+    }
+  ],
+  lastMessage: {
+    type: Types.ObjectId,
+    ref: 'messages'
+  },
+  updated_at: {
     type: Number,
-    default: () => +Date.now()
+    default: () => +new Date()
+  },
+  created_at: {
+    type: Number,
+    default: () => +new Date()
   }
 }, {
   timestamps: true

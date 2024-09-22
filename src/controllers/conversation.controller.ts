@@ -1,15 +1,15 @@
 import httpStatus from "http-status";
-import { conversationModel } from "../models";
+import { conversationModel, userModel } from "../models";
 import { catchAsync } from "../utils/catchAsync.util";
 
 export const createConversationHandler = catchAsync(async (req, res) => {
   const auth = req.auth;
-  const { userId, isGroup, name, userIds } = req.body;
+  const { userId, isGroup, groupName, userIds } = req.body;
 
   if (isGroup) {
     const existingGroup = await conversationModel.findOne({
       createdBy: auth.id,
-      name
+      groupName
     })
 
     if (existingGroup) { 
@@ -23,7 +23,8 @@ export const createConversationHandler = catchAsync(async (req, res) => {
     const newGroup = await conversationModel.create({
       createdBy: auth.id,
       userIds,
-      admins: [ auth.id ]
+      admins: [auth.id],
+      groupName
     })
 
     return res.status(httpStatus.CREATED).send({
@@ -53,5 +54,29 @@ export const createConversationHandler = catchAsync(async (req, res) => {
   return res.status(httpStatus.CREATED).send({
     success: true,
     conversation: newConversation
+  })
+})
+
+export const getConversationHandler = catchAsync(async (req, res) => {
+  const { userId } = req.params;
+
+  if (!userId) { 
+    return res.status(httpStatus.BAD_REQUEST).send({
+      success: false,
+      message: "UserId is required!",
+    })
+  }
+
+  const existingUser = await userModel.findById(userId).populate("conversations");
+  if (!existingUser) { 
+    return res.status(httpStatus.NOT_FOUND).send({
+      success: false,
+      message: "User not found!",
+    })
+  }
+
+  return res.status(httpStatus.OK).send({
+    success: true,
+    conversations: existingUser.conversations
   })
 })

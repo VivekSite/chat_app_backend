@@ -3,6 +3,7 @@ import httpStatus from 'http-status'
 import express from 'express'
 import helmet from 'helmet'
 import cors from 'cors'
+import cookieParser from 'cookie-parser'
 
 import appRoutes from './routes/index'
 import { ApiError } from './utils/error.util'
@@ -12,8 +13,13 @@ const app = express()
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+app.use(cookieParser())
 
-app.use(cors())
+app.use(
+  cors({
+    credentials: true
+  })
+)
 app.options('*', cors())
 
 app.use(helmet())

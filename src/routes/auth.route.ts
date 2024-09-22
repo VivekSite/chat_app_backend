@@ -3,6 +3,7 @@ import {
   logoutHandler,
   signInHandler,
   signUpHandler,
+  statusHandler,
   verifyToken,
   refreshTokenHandler,
   forgotPasswordHandler,
@@ -20,6 +21,7 @@ const app = Router()
 app.post('/sign_up', validateRegistrationBody, signUpHandler)
 app.post('/sign_in', validateLoginBody, signInHandler)
 app.post('/logout', authMiddleware, logoutHandler)
+app.get('/status', authMiddleware, statusHandler)
 app.post('/refresh-token', refreshTokenHandler)
 app.post('/verify', verifyToken)
 

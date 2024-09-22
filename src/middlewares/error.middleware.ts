@@ -22,6 +22,7 @@ const errorConverter = (
   next(error)
 }
 
+// eslint-disable-next-line no-unused-vars
 const errorHandler = (err: ApiError, _req: Request, res: Response, _next: NextFunction) => {
   let { statusCode, message } = err
   if (AppConfig.NODE_ENV === 'production') {

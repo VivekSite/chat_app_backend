@@ -22,6 +22,14 @@ const messageSchema = new Schema({
   senderId: {
     type: Types.ObjectId,
     ref: 'users'
+  },
+  updated_at: {
+    type: Number,
+    default: () => +new Date()
+  },
+  created_at: {
+    type: Number,
+    default: () => +new Date()
   }
 }, {
   timestamps: true,

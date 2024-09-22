@@ -6,12 +6,12 @@ import { verifyAccessToken } from '../utils/token.util'
 import { catchAsync } from '../utils/catchAsync.util'
 
 const validateRegistrationBody = (req: Request, res: Response, next: NextFunction) => {
-  const { name, email, password } = req.body
+  const { username, email, password } = req.body
 
   // Validate Name
-  if (!name || name.length < 3) {
+  if (!username || username.length < 3) {
     return res.status(400).json({
-      message: 'Name must be at least of 3 characters'
+      message: 'Username must be at least of 3 characters'
     })
   }
 
@@ -111,19 +111,7 @@ const validateResetPasswordBody = (req: Request, res: Response, next: NextFuncti
 }
 
 const authMiddleware = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-  const cookie_string = req.headers.cookie
-
-  if (!cookie_string) {
-    return res.send({
-      success: false,
-      message: 'Looks like you are not logged in!'
-    })
-  }
-
-  const cookies = cookie_string.split(';')
-  const accessToken = cookies
-    .find((cookie: string) => cookie.trim().startsWith('accessToken='))
-    ?.split('=')[1]
+  const accessToken = req.cookies.accessToken
   if (accessToken) {
     const payload = await verifyAccessToken(accessToken)
     if (!payload) { 
@@ -138,7 +126,7 @@ const authMiddleware = catchAsync(async (req: Request, res: Response, next: Next
     return;
   }
 
-  return res.status(403).json({
+  return res.status(401).json({
     success: false,
     message: 'Authorization Required'
   })

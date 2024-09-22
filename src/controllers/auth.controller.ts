@@ -12,9 +12,10 @@ import {
 import { compareOTP, generateOTP } from '../utils/otp.util'
 import { sendGmail } from './../services/nodemailer.service'
 import { generateMD5Hash } from '../utils/hash.util.js'
+import httpStatus from 'http-status'
 
 export const signUpHandler = catchAsync(async (req, res) => {
-  const { name, email, password } = req.body
+  const { username, email, password } = req.body
 
   const existingUser = await userModel.findOne({ email })
 
@@ -27,22 +28,32 @@ export const signUpHandler = catchAsync(async (req, res) => {
 
   const hashedPassword = bcrypt.hashSync(password, 10)
   const user = await userModel.create({
-    name,
+    username,
     email,
     password: hashedPassword
   })
 
   const payload = {
     id: user._id,
-    name,
+    username,
     email
   }
   // Sign a token
   const accessToken = await signAccessToken(email, payload)
   const refreshToken = await signRefreshToken(email, payload)
 
-  res.cookie('accessToken', accessToken, { httpOnly: true })
-  res.cookie('refreshToken', refreshToken, { httpOnly: true })
+  res.cookie('accessToken', accessToken, {
+    httpOnly: true,
+    secure: true,
+    path: '/',
+    sameSite: 'none'
+  })
+  res.cookie('refreshToken', refreshToken, {
+    httpOnly: true,
+    secure: true,
+    path: '/',
+    sameSite: 'none'
+  })
 
   return res.status(200).json({
     success: true,
@@ -56,13 +67,13 @@ export const signInHandler = catchAsync(async (req, res) => {
   const existingUser = await userModel.findOne({ email: email })
 
   if (!existingUser) {
-    return res.status(404).send({
+    return res.status(httpStatus.NOT_FOUND).send({
       success: false,
       message: `User with email ${email} not found`
     })
   }
 
-  const isPasswordCorrect = bcrypt.compareSync(password, existingUser.password)
+  const isPasswordCorrect = bcrypt.compareSync(password, existingUser.password as string)
   if (!isPasswordCorrect) {
     return res.status(401).json({
       success: false,
@@ -73,14 +84,24 @@ export const signInHandler = catchAsync(async (req, res) => {
   const payload = {
     email,
     id: existingUser._id,
-    name: existingUser.name
+    username: existingUser.username
   }
   // Sign a token
   const accessToken = await signAccessToken(email, payload)
   const refreshToken = await signRefreshToken(email, payload)
 
-  res.cookie('accessToken', accessToken, { httpOnly: true })
-  res.cookie('refreshToken', refreshToken, { httpOnly: true })
+  res.cookie('accessToken', accessToken, {
+    httpOnly: true,
+    secure: true,
+    path: '/',
+    sameSite: 'none'
+  })
+  res.cookie('refreshToken', refreshToken, {
+    httpOnly: true,
+    secure: true,
+    path: '/',
+    sameSite: 'none'
+  })
 
   return res.status(200).json({
     success: true,
@@ -88,8 +109,25 @@ export const signInHandler = catchAsync(async (req, res) => {
   })
 })
 
+export const statusHandler = catchAsync(async (req, res) => {
+  const auth = req.auth
+  if (auth) {
+    return res.status(200).send({
+      success: true,
+      message: 'Auth Is Valid.',
+      auth
+    })
+  }
+
+  return res.status(403).send({
+    success: false,
+    message: 'Invalid Auth!'
+  })
+})
+
 export const refreshTokenHandler = catchAsync(async (req, res) => {
-  const { refreshToken } = req.body
+  const refreshToken = req.cookies.refreshToken
+
   if (!refreshToken) {
     return res.send({
       success: false,
@@ -110,12 +148,23 @@ export const refreshTokenHandler = catchAsync(async (req, res) => {
   const accessToken = await signAccessToken(email, newPayload)
   const newRefreshToken = await signRefreshToken(email, newPayload)
 
-  res.cookie('accessToken', accessToken, { httpOnly: true })
-  res.cookie('refreshToken', newRefreshToken, { httpOnly: true })
+  res.cookie('accessToken', accessToken, {
+    httpOnly: true,
+    secure: true,
+    path: '/',
+    sameSite: 'none'
+  })
+  res.cookie('refreshToken', newRefreshToken, {
+    httpOnly: true,
+    secure: true,
+    path: '/',
+    sameSite: 'none'
+  })
 
   return res.send({
     success: true,
-    message: 'Token generated successfully'
+    message: 'Token generated successfully',
+    auth: payload
   })
 })
 

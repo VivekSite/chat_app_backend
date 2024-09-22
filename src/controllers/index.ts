@@ -7,5 +7,5 @@ export {
   signUpHandler,
   verifyToken
 } from './auth.controller'
-export { createConversationHandler } from './conversation.controller'
+export { createConversationHandler, getConversationHandler } from './conversation.controller'
 export {  } from './message.controller'
