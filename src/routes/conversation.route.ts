@@ -8,7 +8,7 @@ const app = Router({
 });
 
 app.post("/", ValidateCreateConversation, createConversationHandler)
-app.post("/:userId", getConversationHandler)
+app.get("/:userId", getConversationHandler)
 app.use("/:conversationId", messageRoutes)
 
 export default app;

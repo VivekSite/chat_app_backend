@@ -11,8 +11,21 @@ const ObjectIdString = (err_Message: string) => {
 }
 
 export const SocketMessageSchema = z.object({
-  conversationId: ObjectIdString('conversationId is required!'),
-  body: z.string({
-    required_error: 'message can not be empty!'
+  event: z.string({
+    required_error: 'Event Name must be defined!'
   }),
+  data: z.any({
+    required_error: 'Data cannot be empty!'
+  })
+})
+
+export const CreateConversationSchema = z.object({
+  user: z.object({
+    id: ObjectIdString('User has invalid id!'),
+    email: z
+      .string({
+        required_error: "User's Email is required!"
+      })
+      .email()
+  })
 })

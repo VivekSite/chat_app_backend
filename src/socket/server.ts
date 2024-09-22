@@ -74,15 +74,7 @@ web_socket_server.on('connection', (ws: WebSocket, req: IncomingMessage) => {
   })
 
   ws.on('message', (message: RawData) => {
-    MessageHandler(message, req.auth)
-      .catch((error: any) => {
-        console.error("Error while processing message")
-        console.error(error.message)
-      })
-  })
-
-  ws.on("messages:new", (message: RawData) => {
-    MessageHandler(message, req.auth)
+    MessageHandler(message, req.auth, ws)
       .catch((error: any) => {
         console.error("Error while processing message")
         console.error(error.message)
