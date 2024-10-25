@@ -1,39 +1,38 @@
-import { Server } from 'http'
-import { AppConfig } from './config/env.config.js'
-import { server, web_socket_server } from './server.js'
-import { ConnectDB } from './utils/db.util'
-import redisClient from './services/redis.service'
+import { Server } from "http";
 
-let httpServer: Server
-const port = AppConfig.PORT
+import { AppConfig } from "./config/env.config.js";
+import { server, web_socket_server } from "./socket/server.js";
+import { ConnectDB } from "./utils/db.util";
+import { Logger } from "./config/logger.config";
+
+let httpServer: Server;
+const port = AppConfig.PORT;
 
 ConnectDB(AppConfig.MONGO_URI).then(() => {
-  httpServer = server.listen(port, () => {
-    console.info(`Listening to port ${port}`)
-  })
-})
+	httpServer = server.listen(port, () => {
+		Logger.info(`Listening on port ${port}`);
+	});
+});
 
 const exitHandler = () => {
-  console.log('Terminating All Services...')
-  web_socket_server.close()
-  console.info('Terminated WebSocket Server')
-  redisClient.quit()
-  console.info('Terminated Redis Server')
+	Logger.info("Terminating All Services...");
+	web_socket_server.close();
+	Logger.info("Terminated WebSocket Server");
 
-  if (httpServer) {
-    httpServer.close()
-    console.info('Terminated Node Server')
-  }
-  process.exit(1)
-}
+	if (httpServer) {
+		httpServer.close();
+		Logger.info("Terminated Node Server");
+	}
+	process.exit(1);
+};
 
 const unexpectedErrorHandler = (error: Error) => {
-  console.error(error)
-  exitHandler()
-}
+	Logger.error(error);
+	exitHandler();
+};
 
-process.on('SIGINT', () => {
-  exitHandler()
-})
-process.on('uncaughtException', unexpectedErrorHandler)
-process.on('unhandledRejection', unexpectedErrorHandler)
+process.on("SIGINT", () => {
+	exitHandler();
+});
+process.on("uncaughtException", unexpectedErrorHandler);
+process.on("unhandledRejection", unexpectedErrorHandler);

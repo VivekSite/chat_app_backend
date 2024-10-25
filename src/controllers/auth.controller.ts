@@ -1,203 +1,252 @@
-import { userModel } from '../models/user.model.js'
-import bcrypt from 'bcryptjs'
+import httpStatus from "http-status";
+import bcrypt from "bcryptjs";
 
-import { catchAsync } from '../utils/catchAsync.util'
-import redisClient from './../services/redis.service'
+import { userModel } from "../models";
+import { catchAsync } from "../utils/catchAsync.util";
+import { accessTokenCache, otpCache, refreshTokenCache } from "./../utils/cache.util";
 import {
-  signAccessToken,
-  signRefreshToken,
-  verifyAccessToken,
-  verifyRefreshToken
-} from '../utils/token.util'
-import { compareOTP, generateOTP } from '../utils/otp.util'
-import { sendGmail } from './../services/nodemailer.service'
-import { generateMD5Hash } from '../utils/hash.util.js'
+	signAccessToken,
+	signRefreshToken,
+	verifyAccessToken,
+	verifyRefreshToken
+} from "../utils/token.util";
+import { compareOTP, generateOTP } from "../utils/otp.util";
+import { sendGmail } from "./../services/nodemailer.service";
+import { generateMD5Hash } from "../utils/hash.util.js";
 
 export const signUpHandler = catchAsync(async (req, res) => {
-  const { name, email, password } = req.body
+	const { username, email, password } = req.body;
 
-  const existingUser = await userModel.findOne({ email })
+	const existingUser = await userModel.findOne({ email });
 
-  if (existingUser) {
-    return res.status(409).send({
-      success: false,
-      message: `User with email ${email} already exists`
-    })
-  }
+	if (existingUser) {
+		return res.status(409).send({
+			success: false,
+			message: `User with email ${email} already exists`
+		});
+	}
 
-  const hashedPassword = bcrypt.hashSync(password, 10)
-  const user = await userModel.create({
-    name,
-    email,
-    password: hashedPassword
-  })
+	const hashedPassword = bcrypt.hashSync(password, 10);
+	const user = await userModel.create({
+		username,
+		email,
+		password: hashedPassword
+	});
 
-  const payload = {
-    id: user._id,
-    name,
-    email
-  }
-  // Sign a token
-  const accessToken = await signAccessToken(email, payload)
-  const refreshToken = await signRefreshToken(email, payload)
+	const payload = {
+		id: user._id,
+		username,
+		email
+	};
+	// Sign a token
+	const accessToken = await signAccessToken(email, payload);
+	const refreshToken = await signRefreshToken(email, payload);
 
-  res.cookie('accessToken', accessToken, { httpOnly: true })
-  res.cookie('refreshToken', refreshToken, { httpOnly: true })
+	res.cookie("accessToken", accessToken, {
+		httpOnly: true,
+		secure: true,
+		path: "/",
+		sameSite: "none"
+	});
+	res.cookie("refreshToken", refreshToken, {
+		httpOnly: true,
+		secure: true,
+		path: "/",
+		sameSite: "none"
+	});
 
-  return res.status(200).json({
-    success: true,
-    message: 'User created successfully'
-  })
-})
+	return res.status(200).json({
+		success: true,
+		message: "User created successfully"
+	});
+});
 
 export const signInHandler = catchAsync(async (req, res) => {
-  const { email, password } = req.body
+	const { email, password } = req.body;
 
-  const existingUser = await userModel.findOne({ email: email })
+	const existingUser = await userModel.findOne({ email: email });
 
-  if (!existingUser) {
-    return res.status(404).send({
-      success: false,
-      message: `User with email ${email} not found`
-    })
-  }
+	if (!existingUser) {
+		return res.status(httpStatus.NOT_FOUND).send({
+			success: false,
+			message: `User with email ${email} not found`
+		});
+	}
 
-  const isPasswordCorrect = bcrypt.compareSync(password, existingUser.password)
-  if (!isPasswordCorrect) {
-    return res.status(401).json({
-      success: false,
-      message: 'Wrong password!'
-    })
-  }
+	const isPasswordCorrect = bcrypt.compareSync(password, existingUser.password as string);
+	if (!isPasswordCorrect) {
+		return res.status(401).json({
+			success: false,
+			message: "Wrong password!"
+		});
+	}
 
-  const payload = {
-    email,
-    id: existingUser._id,
-    name: existingUser.name
-  }
-  // Sign a token
-  const accessToken = await signAccessToken(email, payload)
-  const refreshToken = await signRefreshToken(email, payload)
+	const payload = {
+		email,
+		id: existingUser._id,
+		username: existingUser.username
+	};
+	// Sign a token
+	const accessToken = await signAccessToken(email, payload);
+	const refreshToken = await signRefreshToken(email, payload);
 
-  res.cookie('accessToken', accessToken, { httpOnly: true })
-  res.cookie('refreshToken', refreshToken, { httpOnly: true })
+	res.cookie("accessToken", accessToken, {
+		httpOnly: true,
+		secure: true,
+		path: "/",
+		sameSite: "none"
+	});
+	res.cookie("refreshToken", refreshToken, {
+		httpOnly: true,
+		secure: true,
+		path: "/",
+		sameSite: "none"
+	});
 
-  return res.status(200).json({
-    success: true,
-    message: 'Login successful'
-  })
-})
+	return res.status(200).json({
+		success: true,
+		message: "Login successful"
+	});
+});
+
+export const statusHandler = catchAsync(async (req, res) => {
+	const auth = req.auth;
+	if (auth) {
+		return res.status(200).send({
+			success: true,
+			message: "Auth Is Valid.",
+			auth
+		});
+	}
+
+	return res.status(403).send({
+		success: false,
+		message: "Invalid Auth!"
+	});
+});
 
 export const refreshTokenHandler = catchAsync(async (req, res) => {
-  const { refreshToken } = req.body
-  if (!refreshToken) {
-    return res.send({
-      success: false,
-      message: 'Refresh token is required!'
-    })
-  }
+	const refreshToken = req.cookies.refreshToken;
 
-  const payload = await verifyRefreshToken(refreshToken)
-  if (!payload || !payload.email) {
-    return res.send({
-      success: false,
-      message: 'Invalid refresh token'
-    })
-  }
+	if (!refreshToken) {
+		return res.send({
+			success: false,
+			message: "Refresh token is required!"
+		});
+	}
 
-  const { email } = payload
-  const newPayload = { email, name: payload.name, id: payload.id }
-  const accessToken = await signAccessToken(email, newPayload)
-  const newRefreshToken = await signRefreshToken(email, newPayload)
+	const payload = await verifyRefreshToken(refreshToken);
+	if (!payload || !payload.email) {
+		return res.send({
+			success: false,
+			message: "Invalid refresh token"
+		});
+	}
 
-  res.cookie('accessToken', accessToken, { httpOnly: true })
-  res.cookie('refreshToken', newRefreshToken, { httpOnly: true })
+	const { email } = payload;
+	const newPayload = { email, name: payload.name, id: payload.id };
+	const accessToken = await signAccessToken(email, newPayload);
+	const newRefreshToken = await signRefreshToken(email, newPayload);
 
-  return res.send({
-    success: true,
-    message: 'Token generated successfully'
-  })
-})
+	res.cookie("accessToken", accessToken, {
+		httpOnly: true,
+		secure: true,
+		path: "/",
+		sameSite: "none"
+	});
+	res.cookie("refreshToken", newRefreshToken, {
+		httpOnly: true,
+		secure: true,
+		path: "/",
+		sameSite: "none"
+	});
+
+	return res.send({
+		success: true,
+		message: "Token generated successfully",
+		auth: payload
+	});
+});
 
 export const logoutHandler = catchAsync(async (req, res) => {
-  const { email } = req.auth
+	const { email } = req.auth;
 
-  await redisClient.del(generateMD5Hash(`${email}_refresh_token`))
-  await redisClient.del(generateMD5Hash(`${email}_access_token`))
-  res.clearCookie('accessToken')
-  res.clearCookie('refreshToken')
+	accessTokenCache.deleteSync(generateMD5Hash(`${email}_access_token`));
+	refreshTokenCache.deleteSync(generateMD5Hash(`${email}_refresh_token`));
+	res.clearCookie("accessToken");
+	res.clearCookie("refreshToken");
 
-  return res.send({
-    success: true,
-    message: 'Logged Out Successfully'
-  })
-})
+	return res.send({
+		success: true,
+		message: "Logged Out Successfully"
+	});
+});
 
 export const verifyToken = catchAsync(async (req, res) => {
-  const { accessToken } = req.body
-  if (!accessToken) {
-    return res.status(400).send({
-      success: false,
-      message: 'Access token is required!'
-    })
-  }
+	const { accessToken } = req.body;
+	if (!accessToken) {
+		return res.status(400).send({
+			success: false,
+			message: "Access token is required!"
+		});
+	}
 
-  const payload = await verifyAccessToken(accessToken)
-  return res.status(200).send({
-    success: true,
-    payload
-  })
-})
+	const payload = await verifyAccessToken(accessToken);
+	return res.status(200).send({
+		success: true,
+		payload
+	});
+});
 
 export const forgotPasswordHandler = catchAsync(async (req, res) => {
-  const { email } = req.body
+	const { email } = req.body;
 
-  if (!email) {
-    return res.status(400).send({
-      success: false,
-      message: 'Email is required!'
-    })
-  }
+	if (!email) {
+		return res.status(400).send({
+			success: false,
+			message: "Email is required!"
+		});
+	}
 
-  const user = await userModel.findOne({ email })
-  if (!user) {
-    return res.status(404).send({
-      success: false,
-      message: `No user found with email ${email}`
-    })
-  }
+	const user = await userModel.findOne({ email });
+	if (!user) {
+		return res.status(404).send({
+			success: false,
+			message: `No user found with email ${email}`
+		});
+	}
 
-  const otp = await generateOTP(email)
+	const otp = await generateOTP(email);
 
-  await sendGmail(
-    email,
-    `Received reset password request`,
-    `Use this OTP to reset your password: ${otp}`
-  )
+	await sendGmail(
+		email,
+		"Received reset password request",
+		`Use this OTP to reset your password: ${otp}`
+	);
 
-  return res.status(200).send({
-    success: true,
-    message: 'OTP is sent on registered email'
-  })
-})
+	return res.status(200).send({
+		success: true,
+		message: "OTP is sent on registered email"
+	});
+});
 
 export const resetPasswordHandler = catchAsync(async (req, res) => {
-  const { otp, password, email } = req.body
+	const { otp, password, email } = req.body;
 
-  const isCorrectOTP = await compareOTP(otp, email)
-  if (!isCorrectOTP) {
-    return res.status(401).send({
-      success: false,
-      message: 'Invalid OTP'
-    })
-  }
+	const isCorrectOTP = await compareOTP(otp, email);
+	if (!isCorrectOTP) {
+		return res.status(401).send({
+			success: false,
+			message: "Invalid OTP"
+		});
+	}
 
-  const hashedPassword = bcrypt.hashSync(password, 10)
-  await userModel.findOneAndUpdate({ email }, { password: hashedPassword })
-  await redisClient.del(generateMD5Hash(`${email}_otp`))
+	const hashedPassword = bcrypt.hashSync(password, 10);
+	await userModel.findOneAndUpdate({ email }, { password: hashedPassword });
+	otpCache.deleteSync(generateMD5Hash(`${email}_otp`));
 
-  return res.status(200).send({
-    success: true,
-    message: 'Password updated successfully'
-  })
-})
+	return res.status(200).send({
+		success: true,
+		message: "Password updated successfully"
+	});
+});

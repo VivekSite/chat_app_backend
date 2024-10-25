@@ -1,31 +1,57 @@
-import mongoSanitize from 'express-mongo-sanitize'
-import httpStatus from 'http-status'
-import express from 'express'
-import helmet from 'helmet'
-import cors from 'cors'
+import ExpressMongoSanitize from "express-mongo-sanitize";
+import httpStatus from "http-status";
+import express from "express";
+import helmet from "helmet";
+import cors from "cors";
+import cookieParser from "cookie-parser";
 
-import appRoutes from './routes/index'
-import { ApiError } from './utils/error.util'
-import { errorConverter, errorHandler } from './middlewares/error.middleware'
+import appRoutes from "./routes/index";
+import { ApiError } from "./utils/error.util";
+import { errorConverter, errorHandler } from "./middlewares/error.middleware";
+import morganConfig from "./config/morgan.config";
 
-const app = express()
+const app = express();
 
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+// configure morgan for Request logging
+app.use(morganConfig.errorHandler);
+app.use(morganConfig.successHandler);
 
-app.use(cors())
-app.options('*', cors())
+// parse json request body
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-app.use(helmet())
-app.use(mongoSanitize())
+// parse cookies
+app.use(cookieParser());
 
-app.use('/api/v1', appRoutes)
+// enable cors
+app.use(
+	cors({
+		credentials: true
+	})
+);
+app.options("*", cors());
 
+// sanitize request data
+app.use(ExpressMongoSanitize());
+
+// Enable trust proxy
+app.set("trust proxy", 1);
+
+// v1 api routes
+app.use("/api/v1", appRoutes);
+
+// send back a 404 error for any unknown api request
 app.use((_req, _res, next) => {
-  next(new ApiError(httpStatus.NOT_FOUND, 'Not found'))
-})
+	next(new ApiError(httpStatus.NOT_FOUND, "Not found"));
+});
 
-app.use(errorConverter)
-app.use(errorHandler)
+// convert error to ApiError, if needed
+app.use(errorConverter);
 
-export default app
+// handle error
+app.use(errorHandler);
+
+// set security HTTP headers
+app.use(helmet());
+
+export default app;
