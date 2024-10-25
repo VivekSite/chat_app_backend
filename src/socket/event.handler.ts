@@ -1,30 +1,26 @@
-import WebSocket, { RawData } from 'ws'
-import { SocketMessageSchema } from '../validations/socket.validation'
-import { clients } from './clients'
-import { JwtPayload } from 'jsonwebtoken'
-import cache from 'persistent-cache'
-import { createConversationHandler } from '../controllers/socket.controller'
+import WebSocket, { RawData } from "ws";
 
-const conversationCache = cache({
-  duration: 1000 * 3600,
-  base: '.cache',
-  persist: true,
-  name: 'conversationCache'
-})
+import { SocketMessageSchema } from "../validations/socket.validation";
+import { JwtPayload } from "jsonwebtoken";
+import { createNewMessageHandler } from "../controllers/socket.controller";
+import { Logger } from "../config/logger.config";
+import { clients } from "./clients";
 
 export const MessageHandler = async (message: RawData, auth: JwtPayload, socket: WebSocket) => {
-  const jsonMessage = JSON.parse(message.toString())
-  const messageData = SocketMessageSchema.parse(jsonMessage)
+	const jsonMessage = JSON.parse(message.toString());
+	const messageData = SocketMessageSchema.parse(jsonMessage);
 
-  switch (messageData.event) {
-  case "conversation:new":
-    createConversationHandler(messageData.data, auth, socket);
-    break;
-  default:
-    break;
-  }
-}
+	switch (messageData.event) {
+		case "conversation:newMessage":
+			createNewMessageHandler(messageData.data, auth, socket);
+			break;
+		default:
+			break;
+	}
+};
 
 export const CloseHandler = async (auth: JwtPayload) => {
-  console.log(`Client ${auth.email} disconnected`)
-}
+	// Remove the client from the active list
+	clients.delete(auth.id);
+	Logger.info(`Client ${auth.email} disconnected`);
+};

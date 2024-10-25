@@ -1,61 +1,44 @@
-import { conversationModel } from '../models'
-import WebSocket from 'ws'
-import { JwtPayload } from 'jsonwebtoken'
-import { CreateConversationSchema } from '../validations/socket.validation'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { JwtPayload } from "jsonwebtoken";
+import httpStatus from "http-status";
+import WebSocket from "ws";
 
-export const createConversationHandler = async (
-  data: unknown,
-  auth: JwtPayload,
-  socket: WebSocket
+import { CreateNewMessageSchema } from "../validations/socket.validation";
+import { addMessageToQueue } from "../services/bullMq.service";
+import { Logger } from "../config/logger.config";
+
+export const createNewMessageHandler = async (
+	data: unknown,
+	auth: JwtPayload,
+	socket: WebSocket
 ) => {
-  try {
-    const { user } = CreateConversationSchema.parse(data)
+	try {
+		const { user, message } = CreateNewMessageSchema.parse(data);
 
-    const existingConversation = await conversationModel
-      .findOne({
-        userIds: { $all: [user.id, auth.id] }
-      })
-      .populate('messages')
+		// Add message to queue
+		const queueResponse = await addMessageToQueue({
+			user,
+			message,
+			sender: auth
+		});
 
-    if (existingConversation) {
-      socket.send(
-        JSON.stringify({
-          event: 'conversation:new',
-          data: {
-            success: true,
-            conversation: existingConversation
-          }
-        })
-      )
-      return
-    }
-
-    const newConversation = await conversationModel.create({
-      createdBy: auth.id,
-      userIds: [user.id, auth.id]
-    })
-
-    socket.send(
-      JSON.stringify({
-        event: 'conversation:new',
-        data: {
-          success: true,
-          conversation: newConversation
-        }
-      })
-    )
-    return
-  } catch (error: any) {
-    console.error('Error generated while socket transmission: ', error)
-
-    socket.send(
-      JSON.stringify({
-        event: 'conversation:new',
-        data: {
-          success: false,
-          message: error?.message || 'Something went wrong'
-        }
-      })
-    )
-  }
-}
+		// send aknowledgement that message has been received
+		socket.send(
+			JSON.stringify({
+				event: "conversation:received",
+				data: {
+					success: true,
+					statusCode: httpStatus.OK,
+					newMessage: {
+						senderId: auth.id,
+						message,
+						created_at: queueResponse.timestamp
+					}
+				}
+			})
+		);
+		return;
+	} catch (error: any) {
+		Logger.error(`Error generated while socket transmission: ${error.message}`);
+	}
+};

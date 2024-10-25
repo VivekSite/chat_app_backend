@@ -2,9 +2,9 @@ import { Router } from "express";
 import { getAllUserHandler } from "../controllers/user.controller";
 
 const app = Router({
-  mergeParams: true,
-})
+	mergeParams: true
+});
 
-app.get('/', getAllUserHandler)
+app.get("/", getAllUserHandler);
 
 export default app;

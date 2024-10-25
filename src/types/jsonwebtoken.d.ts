@@ -1,9 +1,9 @@
-import { JwtPayload } from 'jsonwebtoken'
+import { JwtPayload } from "jsonwebtoken";
 
-declare module 'jsonwebtoken' {
-  interface JwtPayload {
-    id: string
-    email: string
-    name: string
-  }
+declare module "jsonwebtoken" {
+	interface JwtPayload {
+		id: string;
+		email: string;
+		name: string;
+	}
 }
